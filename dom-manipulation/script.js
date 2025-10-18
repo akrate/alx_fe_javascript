@@ -6,6 +6,7 @@ function loadQuotes() {
   if (storedQuotes) {
     quotes = JSON.parse(storedQuotes);
   } else {
+    // اقتباسات افتراضية إذا لم توجد بيانات محفوظة
     quotes = [
       { text: "The best way to get started is to quit talking and begin doing.", category: "Motivation" },
       { text: "Life is what happens when you're busy making other plans.", category: "Life" },
@@ -27,19 +28,22 @@ function showRandomQuote() {
     document.getElementById("quoteDisplay").textContent = "No quotes available in this category.";
     return;
   }
+
   const randomIndex = Math.floor(Math.random() * filtered.length);
   const quote = filtered[randomIndex];
+
   document.getElementById("quoteDisplay").innerHTML = `
     <p><strong>Quote:</strong> ${quote.text}</p>
     <p><em>Category:</em> ${quote.category}</p>
   `;
+
   sessionStorage.setItem("lastViewedQuote", JSON.stringify(quote));
 }
 
 // إنشاء نموذج لإضافة اقتباس جديد
 function createAddQuoteForm() {
-  const formContainer = document.getElementById("formContainer");
-  formContainer.innerHTML = ""; // تنظيف النموذج سابقًا
+  const formContainer = document.createElement("div");
+  formContainer.className = "form-container";
 
   const inputText = document.createElement("input");
   inputText.id = "newQuoteText";
@@ -58,6 +62,8 @@ function createAddQuoteForm() {
   formContainer.appendChild(inputText);
   formContainer.appendChild(inputCategory);
   formContainer.appendChild(addButton);
+
+  document.body.appendChild(formContainer);
 }
 
 // إضافة اقتباس جديد
@@ -76,14 +82,14 @@ function addQuote() {
   quotes.push({ text: newText, category: newCategory });
   saveQuotes();
 
-  // مزامنة مع السيرفر بعد الإضافة
+  // مزامنة مع السيرفر
   postQuotesToServer();
 
   textInput.value = "";
   categoryInput.value = "";
 
-  populateCategories();
-  notifyUser("Quote added successfully!");
+  populateCategories(); // تحديث التصنيفات
+  alert("Quote added successfully!");
 }
 
 // تصدير الاقتباسات إلى ملف JSON
@@ -111,7 +117,7 @@ function importFromJsonFile(event) {
         quotes.push(...importedQuotes);
         saveQuotes();
         populateCategories();
-        notifyUser("Quotes imported successfully!");
+        alert("Quotes imported successfully!");
       } else {
         alert("Invalid JSON format.");
       }
@@ -150,18 +156,9 @@ function populateCategories() {
     select.appendChild(option);
   });
 
+  // استعادة الفلتر المحفوظ
   const savedFilter = localStorage.getItem("selectedCategory") || "all";
   select.value = savedFilter;
-}
-
-// إعلام المستخدم برسائل الحالة
-function notifyUser(message, isError = false) {
-  const notification = document.getElementById("notification");
-  notification.textContent = message;
-  notification.style.color = isError ? "red" : "green";
-  setTimeout(() => {
-    notification.textContent = "";
-  }, 4000);
 }
 
 // مزامنة البيانات مع السيرفر - جلب البيانات (GET)
@@ -172,7 +169,7 @@ async function fetchQuotesFromServer() {
 
     const serverData = await response.json();
 
-    // محاكاة بيانات اقتباسات من السيرفر
+    // تحويل البيانات إلى شكل اقتباسات
     const serverQuotes = serverData.slice(0, 5).map(post => ({
       text: post.title,
       category: "Server"
@@ -191,7 +188,9 @@ async function postQuotesToServer() {
   try {
     const response = await fetch("https://jsonplaceholder.typicode.com/posts", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify(quotes)
     });
 
@@ -206,29 +205,39 @@ async function postQuotesToServer() {
   }
 }
 
-// دالة المزامنة الرئيسية مع حل تعارض
+// دالة مزامنة متكاملة: جلب من السيرفر، دمج، حفظ، وإشعار المستخدم
 async function syncQuotes() {
   const serverQuotes = await fetchQuotesFromServer();
 
-  // دمج مع سيرفر يأخذ الأولوية
+  // دمج الاقتباسات - السيرفر يأخذ الأولوية
   const mergedQuotes = [...serverQuotes];
 
-  // أضف اقتباسات محلية غير موجودة في السيرفر
+  // أضف الاقتباسات المحلية التي ليست موجودة بالسيرفر
   quotes.forEach(localQ => {
     if (!mergedQuotes.some(sq => sq.text === localQ.text)) {
       mergedQuotes.push(localQ);
     }
   });
 
-  // تحقق هل هناك اختلاف
+  // تحقق من وجود اختلاف (تعارض)
   if (JSON.stringify(mergedQuotes) !== JSON.stringify(quotes)) {
     quotes = mergedQuotes;
     saveQuotes();
     populateCategories();
-    notifyUser("Quotes updated from server. Conflicts resolved.");
+    notifyUser("Quotes synced with server! Conflicts resolved.");
   } else {
-    notifyUser("Quotes are up-to-date.");
+    notifyUser("Quotes already up-to-date.");
   }
+}
+
+// إعلام المستخدم برسائل الحالة
+function notifyUser(message, isError = false) {
+  const notification = document.getElementById("notification");
+  notification.textContent = message;
+  notification.style.color = isError ? "red" : "green";
+  setTimeout(() => {
+    notification.textContent = "";
+  }, 4000);
 }
 
 // عند تحميل الصفحة
@@ -247,9 +256,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   document.getElementById("newQuote").addEventListener("click", showRandomQuote);
-  document.getElementById("categoryFilter").addEventListener("change", filterQuotes);
 
-  // استدعاء المزامنة أول مرة ثم كل 30 ثانية
+  // مزامنة تلقائية من السيرفر كل 30 ثانية
   syncQuotes();
   setInterval(syncQuotes, 30000);
 });
