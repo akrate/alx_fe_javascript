@@ -19,20 +19,17 @@ function saveQuotes() {
 }
 
 function showRandomQuote() {
-  let filtered = getFilteredQuotes();
+  const filtered = getFilteredQuotes();
   if (filtered.length === 0) {
     document.getElementById("quoteDisplay").textContent = "No quotes available in this category.";
     return;
   }
-
   const randomIndex = Math.floor(Math.random() * filtered.length);
   const quote = filtered[randomIndex];
-
   document.getElementById("quoteDisplay").innerHTML = `
     <p><strong>Quote:</strong> ${quote.text}</p>
     <p><em>Category:</em> ${quote.category}</p>
   `;
-
   sessionStorage.setItem("lastViewedQuote", JSON.stringify(quote));
 }
 
@@ -75,11 +72,9 @@ function addQuote() {
 
   quotes.push({ text: newText, category: newCategory });
   saveQuotes();
-
+  populateCategories();  
   textInput.value = "";
   categoryInput.value = "";
-
-  populateCategories(); 
   alert("Quote added successfully!");
 }
 
@@ -87,7 +82,6 @@ function exportToJson() {
   const jsonStr = JSON.stringify(quotes, null, 2);
   const blob = new Blob([jsonStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-
   const link = document.createElement("a");
   link.href = url;
   link.download = "quotes.json";
@@ -98,7 +92,6 @@ function exportToJson() {
 
 function importFromJsonFile(event) {
   const fileReader = new FileReader();
-
   fileReader.onload = function(e) {
     try {
       const importedQuotes = JSON.parse(e.target.result);
@@ -114,7 +107,6 @@ function importFromJsonFile(event) {
       alert("Error: " + err.message);
     }
   };
-
   fileReader.readAsText(event.target.files[0]);
 }
 
@@ -134,8 +126,6 @@ function populateCategories() {
   const select = document.getElementById("categoryFilter");
   const uniqueCategories = [...new Set(quotes.map(q => q.category))];
 
-  const current = select.value;
-
   select.innerHTML = `<option value="all">All Categories</option>`;
   uniqueCategories.forEach(cat => {
     const option = document.createElement("option");
@@ -147,6 +137,51 @@ function populateCategories() {
   const savedFilter = localStorage.getItem("selectedCategory") || "all";
   select.value = savedFilter;
 }
+
+const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";  
+
+function notifyUser(msg) {
+  alert("🔄 Sync Notice: " + msg);
+}
+
+async function fetchServerData() {
+  try {
+    const response = await fetch(SERVER_URL);
+    if (!response.ok) throw new Error("Network response was not ok");
+    const serverRaw = await response.json();
+    const serverQuotes = serverRaw.slice(0, 5).map(item => ({
+      text: item.body || item.title || "",
+      category: "Server"
+    }));
+    handleSync(serverQuotes);
+  } catch (err) {
+    console.error("Error fetching server data:", err);
+  }
+}
+
+function handleSync(serverQuotes) {
+  const localMap = new Map(quotes.map(q => [q.text, q]));
+  const merged = [];
+
+  serverQuotes.forEach(sq => {
+    if (localMap.has(sq.text)) {
+      merged.push(sq);
+      localMap.delete(sq.text);
+      notifyUser(`Conflict resolved: used server version of "${sq.text}"`);
+    } else {
+      merged.push(sq);
+    }
+  });
+
+  localMap.forEach(q => merged.push(q));
+
+  quotes = merged;
+  saveQuotes();
+  populateCategories();
+  showRandomQuote();
+}
+
+setInterval(fetchServerData, 3 * 60 * 1000);
 
 document.addEventListener("DOMContentLoaded", () => {
   loadQuotes();
@@ -163,4 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   document.getElementById("newQuote").addEventListener("click", showRandomQuote);
+
+  fetchServerData();
 });
