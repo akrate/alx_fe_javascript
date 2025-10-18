@@ -1,5 +1,6 @@
 let quotes = [];
 
+// تحميل الاقتباسات من localStorage أو تعيين اقتباسات افتراضية
 function loadQuotes() {
   const storedQuotes = localStorage.getItem("quotes");
   if (storedQuotes) {
@@ -14,50 +15,32 @@ function loadQuotes() {
   }
 }
 
+// حفظ الاقتباسات في التخزين المحلي
 function saveQuotes() {
   localStorage.setItem("quotes", JSON.stringify(quotes));
 }
 
+// إظهار اقتباس عشوائي بناءً على الفلتر الحالي
 function showRandomQuote() {
   const filtered = getFilteredQuotes();
   if (filtered.length === 0) {
     document.getElementById("quoteDisplay").textContent = "No quotes available in this category.";
     return;
   }
+
   const randomIndex = Math.floor(Math.random() * filtered.length);
   const quote = filtered[randomIndex];
+
   document.getElementById("quoteDisplay").innerHTML = `
     <p><strong>Quote:</strong> ${quote.text}</p>
     <p><em>Category:</em> ${quote.category}</p>
   `;
+
+  // حفظ الاقتباس الأخير في sessionStorage
   sessionStorage.setItem("lastViewedQuote", JSON.stringify(quote));
 }
 
-function createAddQuoteForm() {
-  const formContainer = document.createElement("div");
-  formContainer.className = "form-container";
-
-  const inputText = document.createElement("input");
-  inputText.id = "newQuoteText";
-  inputText.type = "text";
-  inputText.placeholder = "Enter a new quote";
-
-  const inputCategory = document.createElement("input");
-  inputCategory.id = "newQuoteCategory";
-  inputCategory.type = "text";
-  inputCategory.placeholder = "Enter quote category";
-
-  const addButton = document.createElement("button");
-  addButton.textContent = "Add Quote";
-  addButton.onclick = addQuote;
-
-  formContainer.appendChild(inputText);
-  formContainer.appendChild(inputCategory);
-  formContainer.appendChild(addButton);
-
-  document.body.appendChild(formContainer);
-}
-
+// إضافة اقتباس جديد
 function addQuote() {
   const textInput = document.getElementById("newQuoteText");
   const categoryInput = document.getElementById("newQuoteCategory");
@@ -72,16 +55,21 @@ function addQuote() {
 
   quotes.push({ text: newText, category: newCategory });
   saveQuotes();
-  populateCategories();  
+
   textInput.value = "";
   categoryInput.value = "";
+
+  populateCategories(); // تحديث التصنيفات
+
   alert("Quote added successfully!");
 }
 
+// تصدير الاقتباسات إلى ملف JSON
 function exportToJson() {
   const jsonStr = JSON.stringify(quotes, null, 2);
   const blob = new Blob([jsonStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
+
   const link = document.createElement("a");
   link.href = url;
   link.download = "quotes.json";
@@ -90,8 +78,10 @@ function exportToJson() {
   document.body.removeChild(link);
 }
 
+// استيراد الاقتباسات من ملف JSON
 function importFromJsonFile(event) {
   const fileReader = new FileReader();
+
   fileReader.onload = function(e) {
     try {
       const importedQuotes = JSON.parse(e.target.result);
@@ -107,24 +97,16 @@ function importFromJsonFile(event) {
       alert("Error: " + err.message);
     }
   };
+
   fileReader.readAsText(event.target.files[0]);
 }
 
-function filterQuotes() {
-  const selectedCategory = document.getElementById("categoryFilter").value;
-  localStorage.setItem("selectedCategory", selectedCategory);
-  showRandomQuote();
-}
-
-function getFilteredQuotes() {
-  const category = document.getElementById("categoryFilter").value;
-  if (category === "all") return quotes;
-  return quotes.filter(q => q.category.toLowerCase() === category.toLowerCase());
-}
-
+// تحديث قائمة التصنيفات في القائمة المنسدلة
 function populateCategories() {
   const select = document.getElementById("categoryFilter");
   const uniqueCategories = [...new Set(quotes.map(q => q.category))];
+
+  const current = select.value;
 
   select.innerHTML = `<option value="all">All Categories</option>`;
   uniqueCategories.forEach(cat => {
@@ -138,41 +120,69 @@ function populateCategories() {
   select.value = savedFilter;
 }
 
-const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";  
-
-function notifyUser(msg) {
-  alert("🔄 Sync Notice: " + msg);
+// ترشيح الاقتباسات حسب الفئة المختارة
+function filterQuotes() {
+  const selectedCategory = document.getElementById("categoryFilter").value;
+  localStorage.setItem("selectedCategory", selectedCategory);
+  showRandomQuote();
 }
 
-async function fetchServerData() {
+// الحصول على الاقتباسات المفلترة حسب التصنيف
+function getFilteredQuotes() {
+  const category = document.getElementById("categoryFilter").value;
+  if (category === "all") return quotes;
+  return quotes.filter(q => q.category.toLowerCase() === category.toLowerCase());
+}
+
+// إشعار المستخدم عند وجود تحديث أو تعارض
+function notifyUser(message) {
+  const notification = document.getElementById("notification");
+  notification.textContent = message;
+  setTimeout(() => {
+    notification.textContent = "";
+  }, 5000);
+}
+
+// ** المهمة 3: تزامن البيانات مع السيرفر ومعالجة التعارضات **
+
+// جلب الاقتباسات من السيرفر (محاكاة API)
+async function fetchQuotesFromServer() {
   try {
-    const response = await fetch(SERVER_URL);
-    if (!response.ok) throw new Error("Network response was not ok");
-    const serverRaw = await response.json();
-    const serverQuotes = serverRaw.slice(0, 5).map(item => ({
-      text: item.body || item.title || "",
+    const response = await fetch("https://jsonplaceholder.typicode.com/posts");
+    if (!response.ok) throw new Error("Failed to fetch from server");
+
+    const serverData = await response.json();
+
+    // تحويل بيانات السيرفر إلى اقتباسات (نأخذ أول 5 فقط كمثال)
+    const serverQuotes = serverData.slice(0, 5).map(post => ({
+      text: post.body || post.title || "No content",
       category: "Server"
     }));
-    handleSync(serverQuotes);
-  } catch (err) {
-    console.error("Error fetching server data:", err);
+
+    handleServerSync(serverQuotes);
+  } catch (error) {
+    console.error("Error fetching server quotes:", error);
+    notifyUser("Failed to sync with server.");
   }
 }
 
-function handleSync(serverQuotes) {
+// دمج بيانات السيرفر مع البيانات المحلية مع إعطاء أولوية للسيرفر في حالة التعارض
+function handleServerSync(serverQuotes) {
   const localMap = new Map(quotes.map(q => [q.text, q]));
   const merged = [];
 
-  serverQuotes.forEach(sq => {
-    if (localMap.has(sq.text)) {
-      merged.push(sq);
-      localMap.delete(sq.text);
-      notifyUser(`Conflict resolved: used server version of "${sq.text}"`);
+  serverQuotes.forEach(serverQuote => {
+    if (localMap.has(serverQuote.text)) {
+      // حالة تعارض: نستخدم بيانات السيرفر
+      merged.push(serverQuote);
+      localMap.delete(serverQuote.text);
+      notifyUser(`Conflict resolved: Using server version of "${serverQuote.text}"`);
     } else {
-      merged.push(sq);
+      merged.push(serverQuote);
     }
   });
 
+  // إضافة الاقتباسات المحلية المتبقية
   localMap.forEach(q => merged.push(q));
 
   quotes = merged;
@@ -181,13 +191,15 @@ function handleSync(serverQuotes) {
   showRandomQuote();
 }
 
-setInterval(fetchServerData, 3 * 60 * 1000);
+// جدولة التزامن الدوري مع السيرفر كل 3 دقائق
+setInterval(fetchQuotesFromServer, 3 * 60 * 1000);
 
+// عند تحميل الصفحة
 document.addEventListener("DOMContentLoaded", () => {
   loadQuotes();
   populateCategories();
-  createAddQuoteForm();
 
+  // عرض آخر اقتباس تم مشاهدته من sessionStorage
   const lastQuote = sessionStorage.getItem("lastViewedQuote");
   if (lastQuote) {
     const quote = JSON.parse(lastQuote);
@@ -199,5 +211,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("newQuote").addEventListener("click", showRandomQuote);
 
-  fetchServerData();
+  // استدعاء التزامن مع السيرفر مباشرة عند بدء التطبيق
+  fetchQuotesFromServer();
 });

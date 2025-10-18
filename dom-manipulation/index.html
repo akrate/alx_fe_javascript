@@ -42,12 +42,19 @@
     .form-container {
       margin-top: 30px;
     }
+
+    #notification {
+      margin-top: 15px;
+      color: #d9534f;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
   <h1>Dynamic Quote Generator</h1>
 
+  <!-- فلتر التصنيفات -->
   <label for="categoryFilter"><strong>Filter by Category:</strong></label>
   <select id="categoryFilter" onchange="filterQuotes()">
     <option value="all">All Categories</option>
@@ -57,11 +64,21 @@
 
   <button id="newQuote">Show New Quote</button>
 
+  <!-- النموذج لإضافة اقتباسات -->
+  
+  <div class="form-container" id="addQuoteForm">
+    <input id="newQuoteText" type="text" placeholder="Enter a new quote" />
+    <input id="newQuoteCategory" type="text" placeholder="Enter quote category" />
+    <button onclick="addQuote()">Add Quote</button>
+  </div>
+
   <div style="margin-top: 30px;">
     <h3>Import / Export JSON</h3>
     <input type="file" id="importFile" accept=".json" onchange="importFromJsonFile(event)" />
     <button onclick="exportToJson()">Export Quotes</button>
   </div>
+
+  <div id="notification"></div>
 
   <script src="script.js"></script>
 </body>
