@@ -21,7 +21,7 @@
       border-radius: 8px;
     }
 
-    input, button {
+    input, select, button {
       padding: 10px;
       margin: 8px;
       border-radius: 5px;
@@ -48,11 +48,16 @@
 
   <h1>Dynamic Quote Generator</h1>
 
+  <label for="categoryFilter"><strong>Filter by Category:</strong></label>
+  <select id="categoryFilter" onchange="filterQuotes()">
+    <option value="all">All Categories</option>
+  </select>
+
   <div id="quoteDisplay">Click the button to display a quote.</div>
 
   <button id="newQuote">Show New Quote</button>
 
-
+  
   <div style="margin-top: 30px;">
     <h3>Import / Export JSON</h3>
     <input type="file" id="importFile" accept=".json" onchange="importFromJsonFile(event)" />
