@@ -1,12 +1,10 @@
 let quotes = [];
 
-// تحميل الاقتباسات من localStorage
 function loadQuotes() {
   const storedQuotes = localStorage.getItem("quotes");
   if (storedQuotes) {
     quotes = JSON.parse(storedQuotes);
   } else {
-    // اقتباسات افتراضية إذا لم توجد بيانات محفوظة
     quotes = [
       { text: "The best way to get started is to quit talking and begin doing.", category: "Motivation" },
       { text: "Life is what happens when you're busy making other plans.", category: "Life" },
@@ -16,12 +14,10 @@ function loadQuotes() {
   }
 }
 
-// حفظ الاقتباسات في localStorage
 function saveQuotes() {
   localStorage.setItem("quotes", JSON.stringify(quotes));
 }
 
-// إظهار اقتباس عشوائي بناءً على الفلتر
 function showRandomQuote() {
   let filtered = getFilteredQuotes();
   if (filtered.length === 0) {
@@ -40,7 +36,6 @@ function showRandomQuote() {
   sessionStorage.setItem("lastViewedQuote", JSON.stringify(quote));
 }
 
-// إنشاء نموذج لإضافة اقتباس جديد
 function createAddQuoteForm() {
   const formContainer = document.createElement("div");
   formContainer.className = "form-container";
@@ -66,7 +61,6 @@ function createAddQuoteForm() {
   document.body.appendChild(formContainer);
 }
 
-// إضافة اقتباس جديد
 function addQuote() {
   const textInput = document.getElementById("newQuoteText");
   const categoryInput = document.getElementById("newQuoteCategory");
@@ -82,17 +76,15 @@ function addQuote() {
   quotes.push({ text: newText, category: newCategory });
   saveQuotes();
 
-  // مزامنة مع السيرفر
   postQuotesToServer();
 
   textInput.value = "";
   categoryInput.value = "";
 
-  populateCategories(); // تحديث التصنيفات
+  populateCategories(); 
   alert("Quote added successfully!");
 }
 
-// تصدير الاقتباسات إلى ملف JSON
 function exportToJson() {
   const jsonStr = JSON.stringify(quotes, null, 2);
   const blob = new Blob([jsonStr], { type: "application/json" });
@@ -106,7 +98,6 @@ function exportToJson() {
   document.body.removeChild(link);
 }
 
-// استيراد الاقتباسات من ملف JSON
 function importFromJsonFile(event) {
   const fileReader = new FileReader();
 
@@ -129,21 +120,18 @@ function importFromJsonFile(event) {
   fileReader.readAsText(event.target.files[0]);
 }
 
-// فلترة الاقتباسات حسب التصنيف المختار
 function filterQuotes() {
   const selectedCategory = document.getElementById("categoryFilter").value;
   localStorage.setItem("selectedCategory", selectedCategory);
   showRandomQuote();
 }
 
-// إرجاع الاقتباسات بناءً على الفلتر
 function getFilteredQuotes() {
   const category = document.getElementById("categoryFilter").value;
   if (category === "all") return quotes;
   return quotes.filter(q => q.category.toLowerCase() === category.toLowerCase());
 }
 
-// ملء قائمة التصنيفات في القائمة المنسدلة
 function populateCategories() {
   const select = document.getElementById("categoryFilter");
   const uniqueCategories = [...new Set(quotes.map(q => q.category))];
@@ -156,12 +144,10 @@ function populateCategories() {
     select.appendChild(option);
   });
 
-  // استعادة الفلتر المحفوظ
   const savedFilter = localStorage.getItem("selectedCategory") || "all";
   select.value = savedFilter;
 }
 
-// مزامنة البيانات مع السيرفر - جلب البيانات (GET)
 async function fetchQuotesFromServer() {
   try {
     const response = await fetch("https://jsonplaceholder.typicode.com/posts");
@@ -169,7 +155,6 @@ async function fetchQuotesFromServer() {
 
     const serverData = await response.json();
 
-    // تحويل البيانات إلى شكل اقتباسات
     const serverQuotes = serverData.slice(0, 5).map(post => ({
       text: post.title,
       category: "Server"
@@ -183,7 +168,6 @@ async function fetchQuotesFromServer() {
   }
 }
 
-// مزامنة البيانات مع السيرفر - إرسال البيانات (POST)
 async function postQuotesToServer() {
   try {
     const response = await fetch("https://jsonplaceholder.typicode.com/posts", {
@@ -205,21 +189,17 @@ async function postQuotesToServer() {
   }
 }
 
-// دالة مزامنة متكاملة: جلب من السيرفر، دمج، حفظ، وإشعار المستخدم
 async function syncQuotes() {
   const serverQuotes = await fetchQuotesFromServer();
 
-  // دمج الاقتباسات - السيرفر يأخذ الأولوية
   const mergedQuotes = [...serverQuotes];
 
-  // أضف الاقتباسات المحلية التي ليست موجودة بالسيرفر
   quotes.forEach(localQ => {
     if (!mergedQuotes.some(sq => sq.text === localQ.text)) {
       mergedQuotes.push(localQ);
     }
   });
 
-  // تحقق من وجود اختلاف (تعارض)
   if (JSON.stringify(mergedQuotes) !== JSON.stringify(quotes)) {
     quotes = mergedQuotes;
     saveQuotes();
@@ -230,7 +210,6 @@ async function syncQuotes() {
   }
 }
 
-// إعلام المستخدم برسائل الحالة
 function notifyUser(message, isError = false) {
   const notification = document.getElementById("notification");
   notification.textContent = message;
@@ -240,7 +219,6 @@ function notifyUser(message, isError = false) {
   }, 4000);
 }
 
-// عند تحميل الصفحة
 document.addEventListener("DOMContentLoaded", () => {
   loadQuotes();
   populateCategories();
@@ -257,7 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("newQuote").addEventListener("click", showRandomQuote);
 
-  // مزامنة تلقائية من السيرفر كل 30 ثانية
   syncQuotes();
   setInterval(syncQuotes, 30000);
 });
